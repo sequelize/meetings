@@ -1,0 +1,19 @@
+{
+  "name": "analyse-contributions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "octokit": "^1.7.0"
+  },
+  "devDependencies": {
+    "@octokit/types": "^6.34.0",
+    "@types/node": "^16.11.9",
+    "ts-node": "^10.4.0",
+    "tslib": "^2.3.1",
+    "typescript": "^4.5.2"
+  },
+  "scripts": {
+    "start": "ts-node index.ts"
+  }
+}
