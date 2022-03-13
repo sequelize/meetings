@@ -52,8 +52,8 @@ export default class GitHubClient {
     ).then((results) => results.flat(1));
   }
 
-  readIssues(): Promise<Issue[]> {
-    return Promise.all(
+  async readIssues(): Promise<Issue[]> {
+    const issues = await Promise.all(
       this.repositories.map((repo: Repository) =>
         readCollection<Issue>(this.from, this.octokit.rest.issues.list, {
           owner: this.org,
@@ -62,6 +62,11 @@ export default class GitHubClient {
         })
       )
     ).then((results) => results.flat(1));
+    const uniqueIssues = issues.reduce((acc: any, issue: Issue) => {
+      return { ...acc, [issue.id]: issue };
+    }, {});
+
+    return Object.values(uniqueIssues);
   }
 
   async readPullRequestComments(pullRequest: PullRequest) {

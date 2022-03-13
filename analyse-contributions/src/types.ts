@@ -16,6 +16,7 @@ export type PullRequest = Links &
   };
 
 export type Issue = Timestamps & {
+  id: number;
   user: User;
   number: number;
   title: string;
