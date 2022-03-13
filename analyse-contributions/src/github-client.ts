@@ -2,8 +2,6 @@ import { Octokit } from "octokit";
 import { readCollection } from "./github-helper";
 import { Comment, Issue, PullRequest, Repository } from "./types";
 
-const RELEVANT_REPOSITORIES = ["sequelize", "cli", "umzug"];
-
 export default class GitHubClient {
   private octokit: Octokit;
   private from: Date;
