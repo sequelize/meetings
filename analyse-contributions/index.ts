@@ -12,7 +12,7 @@ import { Comment, Issue, PullRequest } from "./src/types";
   }
 
   const github = new GitHubClient(AUTH_TOKEN, new Date(FROM));
-  
+
   // Make sure we can connect to the GitHub API
   await github.authenticate();
 
