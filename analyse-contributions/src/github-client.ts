@@ -1,13 +1,12 @@
 import { Octokit } from "octokit";
 import { readCollection } from "./github-helper";
-import { Comment, Issue, PullRequest } from "./types";
-
-const RELEVANT_REPOSITORIES = ["sequelize", "cli", "umzug"];
+import { Comment, Issue, PullRequest, Repository } from "./types";
 
 export default class GitHubClient {
   private octokit: Octokit;
   private from: Date;
   private org: string = "sequelize";
+  private repositories: Repository[] = [];
 
   constructor(token: string, from: Date) {
     this.octokit = new Octokit({
@@ -18,6 +17,17 @@ export default class GitHubClient {
 
   async authenticate() {
     const { data } = await this.octokit.rest.users.getAuthenticated();
+    const repositories = await this.readRepositories();
+
+    this.repositories = repositories;
+
+    return data;
+  }
+
+  async readRepositories() {
+    const { data } = await this.octokit.rest.repos.listForOrg({
+      org: this.org,
+    });
 
     return data;
   }
@@ -32,26 +42,31 @@ export default class GitHubClient {
 
   readPullRequests(): Promise<PullRequest[]> {
     return Promise.all(
-      RELEVANT_REPOSITORIES.map((repo: string) =>
+      this.repositories.map((repo: Repository) =>
         readCollection<PullRequest>(this.from, this.octokit.rest.pulls.list, {
           owner: this.org,
-          repo,
+          repo: repo.name,
           state: "closed",
         })
       )
     ).then((results) => results.flat(1));
   }
 
-  readIssues(): Promise<Issue[]> {
-    return Promise.all(
-      RELEVANT_REPOSITORIES.map((repo: string) =>
+  async readIssues(): Promise<Issue[]> {
+    const issues = await Promise.all(
+      this.repositories.map((repo: Repository) =>
         readCollection<Issue>(this.from, this.octokit.rest.issues.list, {
           owner: this.org,
-          repo,
+          repo: repo.name,
           state: "closed",
         })
       )
     ).then((results) => results.flat(1));
+    const uniqueIssues = issues.reduce((acc: any, issue: Issue) => {
+      return { ...acc, [issue.id]: issue };
+    }, {});
+
+    return Object.values(uniqueIssues);
   }
 
   async readPullRequestComments(pullRequest: PullRequest) {
