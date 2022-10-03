@@ -31,6 +31,9 @@ export type UserContributions = {
   };
 };
 
+const FUNDED_LABEL = "funded";
+const FUNDED_MULTIPLIER = 10;
+
 export async function calculateScore({
   members,
   pullRequests,
@@ -54,9 +57,17 @@ export async function calculateScore({
         prComments: memberPrComments,
         issues: memberIssues,
       };
+      const fundedPullRequests = contributions.pullRequests.filter((pr) =>
+        pr.labels.some((label) => label.name === FUNDED_LABEL)
+      );
+      const normalPullRequests = contributions.pullRequests.filter(
+        (pr) => !fundedPullRequests.includes(pr)
+      );
 
       const score = {
-        pullRequests: contributions.pullRequests.length * 2,
+        pullRequests:
+          normalPullRequests.length * 2 +
+          fundedPullRequests.length * FUNDED_MULTIPLIER,
         issueComments: contributions.issueComments.length,
         prComments: contributions.prComments.length,
         issues: contributions.issues.length,

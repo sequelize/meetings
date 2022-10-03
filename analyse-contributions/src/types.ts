@@ -13,7 +13,17 @@ export type PullRequest = Links &
     head: {
       repo: Repository;
     };
+    labels: Label[];
   };
+
+export type Label = {
+  id: number;
+  url: string;
+  name: string;
+  color: string;
+  default: boolean;
+  description: string;
+};
 
 export type Issue = Timestamps & {
   id: number;
