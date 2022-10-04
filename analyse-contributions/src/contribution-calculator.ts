@@ -1,6 +1,7 @@
+import { FUNDED_LABEL, FUNDED_MULTIPLIER, PR_MULTIPLIER } from "./config";
 import { Comment, Issue, PullRequest, User } from "./types";
 
-type CalculatorParams = {
+export type CalculatorInput = {
   members: User[];
   pullRequests: PullRequest[];
   issues: Issue[];
@@ -14,25 +15,26 @@ function byMember(member: User) {
   };
 }
 
-export type UserContributions = {
-  user: User;
-  score: {
-    total: number;
-    pullRequests: number;
-    issueComments: number;
-    prComments: number;
-    issues: number;
-  };
-  contributions: {
-    pullRequests: PullRequest[];
-    issueComments: { issue: Issue; comments: Comment[] }[];
-    prComments: { pullRequest: PullRequest; comments: Comment[] }[];
-    issues: Issue[];
-  };
+export type Score = {
+  total: number;
+  pullRequests: number;
+  issueComments: number;
+  prComments: number;
+  issues: number;
 };
 
-const FUNDED_LABEL = "funded";
-const FUNDED_MULTIPLIER = 10;
+export type Contributions = {
+  pullRequests: PullRequest[];
+  issueComments: { issue: Issue; comments: Comment[] }[];
+  prComments: { pullRequest: PullRequest; comments: Comment[] }[];
+  issues: Issue[];
+};
+
+export type UserContributions = {
+  user: User;
+  score: Score;
+  contributions: Contributions;
+};
 
 export async function calculateScore({
   members,
@@ -40,7 +42,7 @@ export async function calculateScore({
   issues,
   prComments,
   issuesComments,
-}: CalculatorParams): Promise<UserContributions[]> {
+}: CalculatorInput): Promise<UserContributions[]> {
   return Promise.all(
     members.map(async (user: User) => {
       const memberPullRequests = pullRequests.filter(byMember(user));
@@ -51,7 +53,7 @@ export async function calculateScore({
         return comments.some(byMember(user));
       });
       const memberIssues = issues.filter(byMember(user));
-      const contributions = {
+      const contributions: Contributions = {
         pullRequests: memberPullRequests,
         issueComments: memberIssueComments,
         prComments: memberPrComments,
@@ -64,22 +66,23 @@ export async function calculateScore({
         (pr) => !fundedPullRequests.includes(pr)
       );
 
-      const score = {
+      const _score: Omit<Score, "total"> = {
         pullRequests:
-          normalPullRequests.length * 2 +
+          normalPullRequests.length * PR_MULTIPLIER +
           fundedPullRequests.length * FUNDED_MULTIPLIER,
         issueComments: contributions.issueComments.length,
         prComments: contributions.prComments.length,
         issues: contributions.issues.length,
       };
+      const score: Score = {
+        ..._score,
+        total: Object.values(_score).reduce((a, b) => a + b, 0),
+      };
 
       return {
         user,
         contributions,
-        score: {
-          ...score,
-          total: Object.values(score).reduce((a, b) => a + b, 0),
-        },
+        score,
       };
     })
   );
