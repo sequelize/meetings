@@ -1,9 +1,10 @@
 import { FUNDED_LABEL, FUNDED_MULTIPLIER, PR_MULTIPLIER } from "./config";
+import { GroupedPullRequests } from "./github-client";
 import { Comment, Issue, PullRequest, User } from "./types";
 
 export type CalculatorInput = {
   members: User[];
-  pullRequests: PullRequest[];
+  pullRequests: GroupedPullRequests;
   issues: Issue[];
   prComments: { pullRequest: PullRequest; comments: Comment[] }[];
   issuesComments: { issue: Issue; comments: Comment[] }[];
@@ -45,7 +46,7 @@ export async function calculateScore({
 }: CalculatorInput): Promise<UserContributions[]> {
   return Promise.all(
     members.map(async (user: User) => {
-      const memberPullRequests = pullRequests.filter(byMember(user));
+      const memberPullRequests = pullRequests.all.filter(byMember(user));
       const memberIssueComments = issuesComments.filter(({ comments }) => {
         return comments.some(byMember(user));
       });
@@ -59,17 +60,11 @@ export async function calculateScore({
         prComments: memberPrComments,
         issues: memberIssues,
       };
-      const fundedPullRequests = contributions.pullRequests.filter((pr) =>
-        pr.labels.some((label) => label.name === FUNDED_LABEL)
-      );
-      const normalPullRequests = contributions.pullRequests.filter(
-        (pr) => !fundedPullRequests.includes(pr)
-      );
 
       const _score: Omit<Score, "total"> = {
         pullRequests:
-          normalPullRequests.length * PR_MULTIPLIER +
-          fundedPullRequests.length * FUNDED_MULTIPLIER,
+          pullRequests.normal.filter(byMember(user)).length * PR_MULTIPLIER +
+          pullRequests.funded.filter(byMember(user)).length * FUNDED_MULTIPLIER,
         issueComments: contributions.issueComments.length,
         prComments: contributions.prComments.length,
         issues: contributions.issues.length,

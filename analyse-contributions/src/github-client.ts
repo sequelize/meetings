@@ -1,7 +1,13 @@
 import { Octokit } from "octokit";
+import { FUNDED_LABEL } from "./config";
 import { readCollection } from "./github-helper";
 import { Comment, Issue, PullRequest, Repository } from "./types";
 
+export type GroupedPullRequests = {
+  normal: PullRequest[];
+  funded: PullRequest[];
+  all: PullRequest[];
+};
 export default class GitHubClient {
   private octokit: Octokit;
   private from: Date;
@@ -40,7 +46,10 @@ export default class GitHubClient {
     return data;
   }
 
-  readPullRequests(): Promise<PullRequest[]> {
+  readPullRequests(): Promise<GroupedPullRequests> {
+    const isFunded = (pr: PullRequest) =>
+      pr.labels.some((label) => label.name === FUNDED_LABEL);
+
     return Promise.all(
       this.repositories.map((repo: Repository) =>
         readCollection<PullRequest>(this.from, this.octokit.rest.pulls.list, {
@@ -49,7 +58,14 @@ export default class GitHubClient {
           state: "closed",
         })
       )
-    ).then((results) => results.flat(1));
+    )
+      .then((results) => results.flat(1))
+      .then((pullRequests) => {
+        const funded = pullRequests.filter(isFunded);
+        const normal = pullRequests.filter((pr) => !funded.includes(pr));
+
+        return { funded, normal, all: pullRequests };
+      });
   }
 
   async readIssues(): Promise<Issue[]> {
