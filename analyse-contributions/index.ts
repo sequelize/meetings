@@ -1,7 +1,7 @@
 import { calculateScore } from "./src/contribution-calculator";
 import { formatScore } from "./src/formatter";
 import GitHubClient from "./src/github-client";
-import { Comment, Issue, PullRequest } from "./src/types";
+import { Comment, Issue, PullRequest, Review } from "./src/types";
 
 (async () => {
   const { AUTH_TOKEN, FROM } = process.env;
@@ -36,12 +36,23 @@ import { Comment, Issue, PullRequest } from "./src/types";
           .then((comments) => ({ issue, comments }))
       )
     );
+  const prReviews: { pullRequest: PullRequest; reviews: Review[] }[] =
+    await Promise.all(
+      pullRequests.map((pullRequest: PullRequest) =>
+        github.readPullRequestReviews(pullRequest).then((reviews) => ({
+          pullRequest,
+          reviews,
+        }))
+      )
+    );
+
   const usersWithScore = await calculateScore({
     members,
     pullRequests,
     issues,
     prComments,
     issuesComments,
+    prReviews,
   });
 
   // sort users by total score

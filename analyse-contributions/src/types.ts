@@ -2,6 +2,7 @@ export type Timestamps = {
   created_at: string;
   updated_at: string;
   closed_at?: string;
+  submitted_at?: string;
 };
 
 export type PullRequest = Links &
@@ -40,6 +41,11 @@ export type Issue = Timestamps & {
 export type User = {
   login: string;
   id: number;
+};
+
+export type Review = Timestamps & {
+  user: User;
+  state: string;
 };
 
 export type Comment = Timestamps & {

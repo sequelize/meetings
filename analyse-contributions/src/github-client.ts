@@ -1,6 +1,6 @@
 import { Octokit } from "octokit";
 import { readCollection } from "./github-helper";
-import { Comment, Issue, PullRequest, Repository } from "./types";
+import { Comment, Issue, PullRequest, Repository, Review } from "./types";
 
 export default class GitHubClient {
   private octokit: Octokit;
@@ -91,6 +91,28 @@ export default class GitHubClient {
         repo,
         pull_number,
       }
+    );
+  }
+
+  async readPullRequestReviews(pullRequest: PullRequest) {
+    const match = pullRequest.comments_url.match(
+      /repos\/(.*)\/(.*)\/issues\/(\d*)\/comments/
+    );
+
+    if (!match) {
+      return [];
+    }
+
+    const owner: string = match[1];
+    const repo: string = match[2];
+    const pull_number: string = match[3];
+
+    return readCollection<Review>(
+      this.from,
+      this.octokit.rest.pulls.listReviews,
+      { owner, repo, pull_number }
+    ).then((reviews) =>
+      reviews.filter((review: Review) => review.state === "APPROVED")
     );
   }
 

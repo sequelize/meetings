@@ -1,6 +1,8 @@
-import { Comment, Issue, PullRequest } from "./types";
+import { Comment, Issue, PullRequest, Review } from "./types";
 
-export async function readCollection<T extends PullRequest | Issue | Comment>(
+export async function readCollection<
+  T extends PullRequest | Issue | Comment | Review
+>(
   from: Date,
   fun: Function,
   args: Object,
@@ -13,9 +15,10 @@ export async function readCollection<T extends PullRequest | Issue | Comment>(
     page,
   });
 
-  const collection: T[] = _collection.filter(
-    (entity: T) => new Date(entity.closed_at || entity.updated_at) > from
-  );
+  const collection: T[] = _collection.filter((entity: T) => {
+    const date = entity.closed_at || entity.updated_at || entity.submitted_at;
+    return new Date(date!) > from;
+  });
 
   if (collection.length < 100) {
     return acc.concat(collection);

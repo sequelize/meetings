@@ -32,6 +32,12 @@ export function formatScore(
     contributions.issueComments.forEach(({ issue }) => {
       console.log(`- ${issue.title} (${issue.html_url})`);
     });
+
+    console.log();
+    console.log("Reviews of Pull Requests");
+    contributions.reviews.forEach(({ pullRequest }) => {
+      console.log(`- ${pullRequest.title} (${pullRequest._links.html.href})`);
+    });
   });
 
   console.log("\nOverall stats");
@@ -42,6 +48,7 @@ export function formatScore(
       `total: ${score.total}`,
       `pr: ${score.pullRequests}`,
       `issues: ${score.issues}`,
+      `reviews: ${score.prReviews}`,
       `comments: ${score.issueComments + score.prComments}`,
     ];
 

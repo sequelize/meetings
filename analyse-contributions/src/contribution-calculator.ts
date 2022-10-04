@@ -1,4 +1,4 @@
-import { Comment, Issue, PullRequest, User } from "./types";
+import { Comment, Issue, PullRequest, Review, User } from "./types";
 
 type CalculatorParams = {
   members: User[];
@@ -6,6 +6,7 @@ type CalculatorParams = {
   issues: Issue[];
   prComments: { pullRequest: PullRequest; comments: Comment[] }[];
   issuesComments: { issue: Issue; comments: Comment[] }[];
+  prReviews: { pullRequest: PullRequest; reviews: Review[] }[];
 };
 
 function byMember(member: User) {
@@ -22,12 +23,14 @@ export type UserContributions = {
     issueComments: number;
     prComments: number;
     issues: number;
+    prReviews: number;
   };
   contributions: {
     pullRequests: PullRequest[];
     issueComments: { issue: Issue; comments: Comment[] }[];
     prComments: { pullRequest: PullRequest; comments: Comment[] }[];
     issues: Issue[];
+    reviews: { pullRequest: PullRequest; reviews: Review[] }[];
   };
 };
 
@@ -40,6 +43,7 @@ export async function calculateScore({
   issues,
   prComments,
   issuesComments,
+  prReviews,
 }: CalculatorParams): Promise<UserContributions[]> {
   return Promise.all(
     members.map(async (user: User) => {
@@ -50,12 +54,16 @@ export async function calculateScore({
       const memberPrComments = prComments.filter(({ comments }) => {
         return comments.some(byMember(user));
       });
+      const memberPrReviews = prReviews.filter(({ reviews }) => {
+        return reviews.some(byMember(user));
+      });
       const memberIssues = issues.filter(byMember(user));
       const contributions = {
         pullRequests: memberPullRequests,
         issueComments: memberIssueComments,
         prComments: memberPrComments,
         issues: memberIssues,
+        reviews: memberPrReviews,
       };
       const fundedPullRequests = contributions.pullRequests.filter((pr) =>
         pr.labels.some((label) => label.name === FUNDED_LABEL)
@@ -71,6 +79,7 @@ export async function calculateScore({
         issueComments: contributions.issueComments.length,
         prComments: contributions.prComments.length,
         issues: contributions.issues.length,
+        prReviews: contributions.reviews.length,
       };
 
       return {
