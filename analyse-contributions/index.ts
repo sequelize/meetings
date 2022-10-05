@@ -1,7 +1,7 @@
-import { calculateScore } from "./src/contribution-calculator";
+import { calculateScore, CalculatorInput } from "./src/contribution-calculator";
 import { formatScore } from "./src/formatter";
 import GitHubClient from "./src/github-client";
-import { Comment, Issue, PullRequest } from "./src/types";
+import { Comment, Issue, PullRequest, User } from "./src/types";
 
 (async () => {
   const { AUTH_TOKEN, FROM } = process.env;
@@ -12,16 +12,45 @@ import { Comment, Issue, PullRequest } from "./src/types";
   }
 
   const github = new GitHubClient(AUTH_TOKEN, new Date(FROM));
-
-  // Make sure we can connect to the GitHub API
   await github.authenticate();
 
-  const members = await github.readMembers();
+  const calculatorInput = await getData(github);
+  const usersWithScore = await calculateScore(calculatorInput);
+
+  // sort users by total score
+  const sortedUsers = usersWithScore
+    .sort((a, b) => b.score.total - a.score.total)
+    .filter(({ score }) => score.total > 0);
+
+  // get sum of total scores
+  const totalScore = sortedUsers
+    .map(({ score: { total } }) => total)
+    .reduce((a, b) => a + b, 0);
+
+  formatScore(totalScore, sortedUsers);
+})();
+
+const uniq = (users: User[]): User[] => {
+  return users.reduce((acc, user) => {
+    const userIds = acc.map((_user) => _user.id);
+    if (!userIds.includes(user.id)) {
+      acc.push(user);
+    }
+
+    return acc;
+  }, [] as User[]);
+};
+
+async function getData(github: GitHubClient): Promise<CalculatorInput> {
   const pullRequests = await github.readPullRequests();
+  const members = uniq([
+    ...(await github.readMembers()),
+    ...pullRequests.funded.map((pr) => pr.user),
+  ]);
   const issues = await github.readIssues();
   const prComments: { pullRequest: PullRequest; comments: Comment[] }[] =
     await Promise.all(
-      pullRequests.map((pullRequest: PullRequest) =>
+      pullRequests.all.map((pullRequest: PullRequest) =>
         github.readPullRequestComments(pullRequest).then((comments) => ({
           pullRequest,
           comments,
@@ -36,23 +65,12 @@ import { Comment, Issue, PullRequest } from "./src/types";
           .then((comments) => ({ issue, comments }))
       )
     );
-  const usersWithScore = await calculateScore({
+
+  return {
     members,
     pullRequests,
     issues,
     prComments,
     issuesComments,
-  });
-
-  // sort users by total score
-  const sortedUsers = usersWithScore
-    .sort((a, b) => b.score.total - a.score.total)
-    .filter(({ score }) => score.total > 0);
-
-  // get sum of total scores
-  const totalScore = sortedUsers
-    .map(({ score: { total } }) => total)
-    .reduce((a, b) => a + b, 0);
-
-  formatScore(totalScore, sortedUsers);
-})();
+  };
+}
