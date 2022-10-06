@@ -16,5 +16,5 @@ It will be used to calculate the eligible share of donations on a quarterly basi
 ## Command
 
 ```
-AUTH_TOKEN=<personal github token> FROM=2021-10-01 yarn start
+AUTH_TOKEN=<personal github token> FROM=2021-10-01 BALANCE=1234.56 yarn start
 ```
