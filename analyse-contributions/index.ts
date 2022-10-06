@@ -4,10 +4,12 @@ import GitHubClient from "./src/github-client";
 import { Comment, Issue, PullRequest, User } from "./src/types";
 
 (async () => {
-  const { AUTH_TOKEN, FROM } = process.env;
+  const { AUTH_TOKEN, FROM, BALANCE } = process.env;
 
-  if (!AUTH_TOKEN || !FROM) {
-    console.error("Please set the AUTH_TOKEN and FROM environment variable");
+  if (!AUTH_TOKEN || !FROM || !BALANCE || !Number(BALANCE)) {
+    console.error(
+      "Please set the AUTH_TOKEN, FROM and BALANCE environment variable"
+    );
     process.exit(1);
   }
 
@@ -27,7 +29,7 @@ import { Comment, Issue, PullRequest, User } from "./src/types";
     .map(({ score: { total } }) => total)
     .reduce((a, b) => a + b, 0);
 
-  formatScore(totalScore, sortedUsers);
+  formatScore(Number(BALANCE), totalScore, sortedUsers);
 })();
 
 const uniq = (users: User[]): User[] => {

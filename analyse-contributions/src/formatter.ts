@@ -1,6 +1,7 @@
 import { UserContributions } from "./contribution-calculator";
 
 export function formatScore(
+  balance: number,
   totalScore: number,
   userContributions: UserContributions[]
 ) {
@@ -37,14 +38,18 @@ export function formatScore(
   console.log("\nOverall stats");
   console.log("-".repeat(13));
   userContributions.forEach(({ user, score }) => {
-    const share = ~~((score.total / totalScore) * 100);
+    const share = score.total / totalScore;
+    const sharePercentage = ~~(share * 100);
     const points = [
       `total: ${score.total}`,
       `pr: ${score.pullRequests}`,
       `issues: ${score.issues}`,
       `comments: ${score.issueComments + score.prComments}`,
     ];
+    const usd = (share * balance).toFixed(2);
 
-    console.log(`${user.login}: ${share}% (${points.join(", ")})`);
+    console.log(
+      `${user.login}: ${sharePercentage}% / ${usd} USD (${points.join(", ")})`
+    );
   });
 }
