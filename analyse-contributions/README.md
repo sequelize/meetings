@@ -16,5 +16,9 @@ It will be used to calculate the eligible share of donations on a quarterly basi
 ## Command
 
 ```
-AUTH_TOKEN=<personal github token> FROM=2021-10-01 BALANCE=1234.56 yarn start
+AUTH_TOKEN=<personal github token> QUARTER=2022-Q4 BALANCE=1234.56 yarn start
 ```
+
+- `AUTH_TOKEN` is a github personal access token with `public_repo` scope
+- `QUARTER` is the quarter for which the share should be calculated, format is `YYYY-QX` (e.g. `2022-Q4`)
+- `BALANCE` is the total amount of donations for the quarter, which can be viewed on https://opencollective.com/sequelize

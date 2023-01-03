@@ -1,7 +1,6 @@
-import {COMMENT_MULTIPLIER, FUNDED_MULTIPLIER, ISSUE_MULTIPLIER, PR_MULTIPLIER} from "./config";
-import {GroupedPullRequests} from "./github-client";
-import {Comment, Issue, PullRequest, User} from "./types";
-import {groupBy} from 'lodash';
+import { COMMENT_MULTIPLIER, FUNDED_MULTIPLIER, ISSUE_MULTIPLIER, PR_MULTIPLIER } from "./config";
+import { GroupedPullRequests } from "./github-client";
+import { Comment, Issue, PullRequest, User } from "./types";
 
 export type CalculatorInput = {
   members: User[];

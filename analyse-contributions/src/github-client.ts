@@ -1,8 +1,8 @@
 import { Octokit } from "octokit";
 import { FUNDED_LABEL } from "./config";
-import {readCollection, readSearch} from "./github-helper";
-import {Comment, Issue, PullRequest, Repository} from "./types";
-import {groupBy} from "lodash";
+import { readCollection, readSearch } from "./github-helper";
+import { Comment, Issue, PullRequest, Repository } from "./types";
+import { groupBy } from "lodash";
 
 export type GroupedPullRequests = {
   normal: PullRequest[];

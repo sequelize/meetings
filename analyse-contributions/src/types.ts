@@ -36,7 +36,7 @@ export type Issue = Timestamps & {
   comments_url: string;
   comments: number;
   html_url: string;
-  state_reason;
+  state_reason: 'completed' | 'not_planned' | 'reopened' | null;
   head: {
     repo: Repository;
   };
