@@ -86,7 +86,10 @@ async function getData(github: GitHubClient): Promise<CalculatorInput> {
     ...pullRequests.funded.map((pr) => pr.user),
   ]);
   const newIssues: any[] = await github.readCreatedIssues();
-  const comments: Comment[] = await github.readCreatedComments();
+  const comments: Comment[] = [
+    ...await github.readCreatedComments(),
+    ...await github.readCreatedReviews(),
+  ]
 
   return {
     members,

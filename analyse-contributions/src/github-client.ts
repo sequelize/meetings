@@ -1,7 +1,8 @@
 import { Octokit } from "octokit";
 import { FUNDED_LABEL } from "./config";
 import {readCollection, readSearch} from "./github-helper";
-import {Comment, Issue, PullRequest} from "./types";
+import {Comment, Issue, PullRequest, Repository} from "./types";
+import {groupBy} from "lodash";
 
 export type GroupedPullRequests = {
   normal: PullRequest[];
@@ -29,12 +30,19 @@ export default class GitHubClient {
   }
 
   // TODO: memoize
-  async readRepositories() {
+  private async _readRepositories(): Promise<Repository[]> {
     const { data } = await this.octokit.rest.repos.listForOrg({
       org: this.org,
     });
 
     return data;
+  }
+
+  _readRepositoriesMemoized: Promise<Repository[]> | undefined;
+  readRepositories() {
+    this._readRepositoriesMemoized ??= this._readRepositories();
+
+    return this._readRepositoriesMemoized;
   }
 
   async readMembers() {
@@ -71,41 +79,10 @@ export default class GitHubClient {
     });
   }
 
-  async readUpdatedIssues(): Promise<Issue[]> {
-    return await readSearch<Issue>(this.octokit.rest.search.issuesAndPullRequests, {
-      q: `type:issue+org:${this.org}+updated:${toIsoDateOnly(this.from)}..${toIsoDateOnly(this.to)}`,
-    });
-  }
-
-  async readPullRequestComments(pullRequest: PullRequest) {
-    // example url https://api.github.com/repos/sequelize/sequelize/issues/13611/comments
-    const match = pullRequest.comments_url.match(
-      /repos\/(.*)\/(.*)\/issues\/(\d*)\/comments/
-    );
-
-    if (!match) {
-      return [];
-    }
-
-    const owner: string = match[1];
-    const repo: string = match[2];
-    const pull_number: string = match[3];
-
-    return readCollection(
-      this.from,
-      this.octokit.rest.pulls.listReviewComments,
-      {
-        owner,
-        repo,
-        pull_number,
-      }
-    );
-  }
-
   async readCreatedComments(): Promise<Comment[]> {
     const repositories = await this.readRepositories();
 
-    const comments = await Promise.all(
+    const repoComments = await Promise.all(
       repositories.map(async (repo) => {
         return await readCollection<Comment>(this.from, this.octokit.rest.issues.listCommentsForRepo, {
           owner: this.org,
@@ -113,12 +90,56 @@ export default class GitHubClient {
           since: toIsoDateOnly(this.from),
         });
       }
-    )).then((comments) => comments.flat(1));
+    ));
 
-    return comments.filter(comment => {
+    const comments = repoComments.flat(1).filter(comment => {
       const createdAt = new Date(comment.created_at);
       return createdAt >= this.from && createdAt <= this.to;
     })
+
+    // consecutive comments only count as 1, unless they have been separated by 24 hours
+    const deduplicatedComments: Comment[] = [];
+    const commentThreads: Record<string, Comment[]> = groupBy(comments, comment => comment.issue_url);
+    for (const thread of Object.values(commentThreads)) {
+      thread.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      deduplicatedComments.push(thread[0]);
+
+      for (let i = 1; i < thread.length; i++) {
+        const previousComment = thread[i - 1];
+        const currentComment = thread[i];
+        if (previousComment.user.login !== currentComment.user.login) {
+          deduplicatedComments.push(currentComment);
+          continue;
+        }
+
+        const diff = new Date(currentComment.created_at).getTime() - new Date(previousComment.created_at).getTime();
+        if (diff >= 24 * 60 * 60 * 1000) {
+          deduplicatedComments.push(currentComment);
+        }
+      }
+    }
+
+    return deduplicatedComments;
+  }
+
+  async readCreatedReviews(): Promise<Comment[]> {
+    const repositories = await this.readRepositories();
+
+    const repoReviews = await Promise.all(
+      repositories.map(async (repo) => {
+          return await readCollection<Comment>(this.from, this.octokit.rest.pulls.listReviewCommentsForRepo, {
+            owner: this.org,
+            repo: repo.name,
+            since: toIsoDateOnly(this.from),
+          });
+        }
+      ));
+
+    return repoReviews.flat(1).filter(comment => {
+      const createdAt = new Date(comment.created_at);
+      return createdAt >= this.from && createdAt <= this.to;
+    });
   }
 }
 

@@ -50,6 +50,7 @@ export type User = {
 export type Comment = Timestamps & {
   user: User;
   html_url: string;
+  issue_url: string;
 };
 
 export type Repository = {

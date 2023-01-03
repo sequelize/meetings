@@ -1,6 +1,7 @@
-import {FUNDED_MULTIPLIER, ISSUE_MULTIPLIER, PR_MULTIPLIER} from "./config";
-import { GroupedPullRequests } from "./github-client";
-import { Comment, Issue, PullRequest, User } from "./types";
+import {COMMENT_MULTIPLIER, FUNDED_MULTIPLIER, ISSUE_MULTIPLIER, PR_MULTIPLIER} from "./config";
+import {GroupedPullRequests} from "./github-client";
+import {Comment, Issue, PullRequest, User} from "./types";
+import {groupBy} from 'lodash';
 
 export type CalculatorInput = {
   members: User[];
@@ -54,7 +55,7 @@ export async function calculateScore({
       pullRequests:
         pullRequests.normal.filter(byMember(user)).length * PR_MULTIPLIER +
         pullRequests.funded.filter(byMember(user)).length * FUNDED_MULTIPLIER,
-      comments: contributions.comments.length,
+      comments: contributions.comments.length * COMMENT_MULTIPLIER,
       issues: contributions.issues.length * ISSUE_MULTIPLIER,
     };
     const score: Score = {
