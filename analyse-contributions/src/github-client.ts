@@ -1,7 +1,7 @@
 import { Octokit } from "octokit";
 import { FUNDED_LABEL } from "./config";
-import { readCollection } from "./github-helper";
-import { Comment, Issue, PullRequest, Repository } from "./types";
+import {readCollection, readSearch} from "./github-helper";
+import {Comment, Issue, PullRequest} from "./types";
 
 export type GroupedPullRequests = {
   normal: PullRequest[];
@@ -11,25 +11,24 @@ export type GroupedPullRequests = {
 export default class GitHubClient {
   private octokit: Octokit;
   private from: Date;
+  private to: Date;
   private org: string = "sequelize";
-  private repositories: Repository[] = [];
 
-  constructor(token: string, from: Date) {
+  constructor(token: string, from: Date, to: Date) {
     this.octokit = new Octokit({
       auth: token,
     });
     this.from = from;
+    this.to = to;
   }
 
   async authenticate() {
     const { data } = await this.octokit.rest.users.getAuthenticated();
-    const repositories = await this.readRepositories();
-
-    this.repositories = repositories;
 
     return data;
   }
 
+  // TODO: memoize
   async readRepositories() {
     const { data } = await this.octokit.rest.repos.listForOrg({
       org: this.org,
@@ -46,43 +45,36 @@ export default class GitHubClient {
     return data;
   }
 
-  readPullRequests(): Promise<GroupedPullRequests> {
+  async readPullRequests(): Promise<GroupedPullRequests> {
     const isFunded = (pr: PullRequest) =>
       pr.labels.some((label) => label.name === FUNDED_LABEL);
 
-    return Promise.all(
-      this.repositories.map((repo: Repository) =>
-        readCollection<PullRequest>(this.from, this.octokit.rest.pulls.list, {
-          owner: this.org,
-          repo: repo.name,
-          state: "closed",
-        })
-      )
-    )
-      .then((results) => results.flat(1))
-      .then((pullRequests) => {
-        const funded = pullRequests.filter(isFunded);
-        const normal = pullRequests.filter((pr) => !funded.includes(pr));
+    const pullRequests = await readSearch<PullRequest>(this.octokit.rest.search.issuesAndPullRequests, {
+      q: `type:pr+org:${this.org}+merged:${toIsoDateOnly(this.from)}..${toIsoDateOnly(this.to)}+is:merged`,
+    });
 
-        return { funded, normal, all: pullRequests };
-      });
+    const funded = pullRequests.filter(isFunded);
+    const normal = pullRequests.filter((pr) => !funded.includes(pr));
+
+    return { funded, normal, all: pullRequests };
   }
 
-  async readIssues(): Promise<Issue[]> {
-    const issues = await Promise.all(
-      this.repositories.map((repo: Repository) =>
-        readCollection<Issue>(this.from, this.octokit.rest.issues.list, {
-          owner: this.org,
-          repo: repo.name,
-          state: "closed",
-        })
-      )
-    ).then((results) => results.flat(1));
-    const uniqueIssues = issues.reduce((acc: any, issue: Issue) => {
-      return { ...acc, [issue.id]: issue };
-    }, {});
+  async readCreatedIssues(): Promise<Issue[]> {
+    // reward creating bug report & feature requests
+    const issues = await readSearch<Issue>(this.octokit.rest.search.issuesAndPullRequests, {
+      q: `type:issue+org:${this.org}+created:${toIsoDateOnly(this.from)}..${toIsoDateOnly(this.to)}`,
+    });
 
-    return Object.values(uniqueIssues);
+    // but ignore duplicates, invalid or rejected issues.
+    return issues.filter(issue => {
+      return issue.state_reason !== 'not_planned';
+    });
+  }
+
+  async readUpdatedIssues(): Promise<Issue[]> {
+    return await readSearch<Issue>(this.octokit.rest.search.issuesAndPullRequests, {
+      q: `type:issue+org:${this.org}+updated:${toIsoDateOnly(this.from)}..${toIsoDateOnly(this.to)}`,
+    });
   }
 
   async readPullRequestComments(pullRequest: PullRequest) {
@@ -110,24 +102,26 @@ export default class GitHubClient {
     );
   }
 
-  async readIssueComments(issue: Issue): Promise<Comment[]> {
-    // example url https://api.github.com/repos/sequelize/sequelize/issues/13712/comments
-    const match = issue.comments_url.match(
-      /repos\/(.*)\/(.*)\/issues\/(\d*)\/comments/
-    );
+  async readCreatedComments(): Promise<Comment[]> {
+    const repositories = await this.readRepositories();
 
-    if (!match) {
-      return [];
-    }
+    const comments = await Promise.all(
+      repositories.map(async (repo) => {
+        return await readCollection<Comment>(this.from, this.octokit.rest.issues.listCommentsForRepo, {
+          owner: this.org,
+          repo: repo.name,
+          since: toIsoDateOnly(this.from),
+        });
+      }
+    )).then((comments) => comments.flat(1));
 
-    const owner: string = match[1];
-    const repo: string = match[2];
-    const issue_number: string = match[3];
-
-    return readCollection(this.from, this.octokit.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number,
-    });
+    return comments.filter(comment => {
+      const createdAt = new Date(comment.created_at);
+      return createdAt >= this.from && createdAt <= this.to;
+    })
   }
+}
+
+function toIsoDateOnly(date: Date): string {
+  return date.toISOString().split("T")[0];
 }

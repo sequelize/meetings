@@ -1,4 +1,4 @@
-import { FUNDED_LABEL, FUNDED_MULTIPLIER, PR_MULTIPLIER } from "./config";
+import {FUNDED_MULTIPLIER, ISSUE_MULTIPLIER, PR_MULTIPLIER} from "./config";
 import { GroupedPullRequests } from "./github-client";
 import { Comment, Issue, PullRequest, User } from "./types";
 
@@ -6,8 +6,7 @@ export type CalculatorInput = {
   members: User[];
   pullRequests: GroupedPullRequests;
   issues: Issue[];
-  prComments: { pullRequest: PullRequest; comments: Comment[] }[];
-  issuesComments: { issue: Issue; comments: Comment[] }[];
+  comments: Comment[];
 };
 
 function byMember(member: User) {
@@ -19,15 +18,13 @@ function byMember(member: User) {
 export type Score = {
   total: number;
   pullRequests: number;
-  issueComments: number;
-  prComments: number;
+  comments: number;
   issues: number;
 };
 
 export type Contributions = {
   pullRequests: PullRequest[];
-  issueComments: { issue: Issue; comments: Comment[] }[];
-  prComments: { pullRequest: PullRequest; comments: Comment[] }[];
+  comments: string[];
   issues: Issue[];
 };
 
@@ -41,44 +38,34 @@ export async function calculateScore({
   members,
   pullRequests,
   issues,
-  prComments,
-  issuesComments,
+  comments,
 }: CalculatorInput): Promise<UserContributions[]> {
-  return Promise.all(
-    members.map(async (user: User) => {
-      const memberPullRequests = pullRequests.all.filter(byMember(user));
-      const memberIssueComments = issuesComments.filter(({ comments }) => {
-        return comments.some(byMember(user));
-      });
-      const memberPrComments = prComments.filter(({ comments }) => {
-        return comments.some(byMember(user));
-      });
-      const memberIssues = issues.filter(byMember(user));
-      const contributions: Contributions = {
-        pullRequests: memberPullRequests,
-        issueComments: memberIssueComments,
-        prComments: memberPrComments,
-        issues: memberIssues,
-      };
+  return members.map((user: User) => {
+    const memberPullRequests = pullRequests.all.filter(byMember(user));
+    const memberIssueComments = comments.filter(byMember(user));
+    const memberIssues = issues.filter(byMember(user));
+    const contributions: Contributions = {
+      pullRequests: memberPullRequests,
+      comments: memberIssueComments.map((comment) => comment.html_url),
+      issues: memberIssues,
+    };
 
-      const _score: Omit<Score, "total"> = {
-        pullRequests:
-          pullRequests.normal.filter(byMember(user)).length * PR_MULTIPLIER +
-          pullRequests.funded.filter(byMember(user)).length * FUNDED_MULTIPLIER,
-        issueComments: contributions.issueComments.length,
-        prComments: contributions.prComments.length,
-        issues: contributions.issues.length,
-      };
-      const score: Score = {
-        ..._score,
-        total: Object.values(_score).reduce((a, b) => a + b, 0),
-      };
+    const _score: Omit<Score, "total"> = {
+      pullRequests:
+        pullRequests.normal.filter(byMember(user)).length * PR_MULTIPLIER +
+        pullRequests.funded.filter(byMember(user)).length * FUNDED_MULTIPLIER,
+      comments: contributions.comments.length,
+      issues: contributions.issues.length * ISSUE_MULTIPLIER,
+    };
+    const score: Score = {
+      ..._score,
+      total: Object.values(_score).reduce((a, b) => a + b, 0),
+    };
 
-      return {
-        user,
-        contributions,
-        score,
-      };
-    })
-  );
+    return {
+      user,
+      contributions,
+      score,
+    };
+  });
 }

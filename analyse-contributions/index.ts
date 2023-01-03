@@ -1,19 +1,54 @@
 import { calculateScore, CalculatorInput } from "./src/contribution-calculator";
 import { formatScore } from "./src/formatter";
 import GitHubClient from "./src/github-client";
-import { Comment, Issue, PullRequest, User } from "./src/types";
+import {Comment, User} from "./src/types";
 
 (async () => {
-  const { AUTH_TOKEN, FROM, BALANCE } = process.env;
+  const { AUTH_TOKEN, QUARTER, BALANCE } = process.env;
 
-  if (!AUTH_TOKEN || !FROM || !BALANCE || !Number(BALANCE)) {
+  if (!AUTH_TOKEN || !QUARTER || !BALANCE || !Number(BALANCE)) {
     console.error(
-      "Please set the AUTH_TOKEN, FROM and BALANCE environment variable"
+      "Please set the AUTH_TOKEN, QUARTER (YYYY-Q1, YYYY-Q2, YYYY-Q3 or YYYY-Q4, e.g. 2022-Q1) and BALANCE environment variable"
     );
     process.exit(1);
   }
 
-  const github = new GitHubClient(AUTH_TOKEN, new Date(FROM));
+  const match = QUARTER.match(/^(\d{4})-Q([1-4])$/);
+  if (match == null) {
+    console.log(`Quarter syntax is invalid, should follow this format: YYYY-Qx (e.g. 2022-Q1 for january to march 2022)`);
+  }
+
+  const year: string = match![1];
+  const quarter = Number(match![2]);
+
+  let from: Date;
+  let to: Date;
+  switch (quarter) {
+    case 1:
+      from = new Date(`${year}-01-01`);
+      to = new Date(`${year}-03-31`);
+      break;
+
+    case 2:
+      from = new Date(`${year}-04-01`);
+      to = new Date(`${year}-06-30`);
+      break;
+
+    case 3:
+      from = new Date(`${year}-07-01`);
+      to = new Date(`${year}-09-30`);
+      break;
+
+    case 4:
+      from = new Date(`${year}-10-01`);
+      to = new Date(`${year}-12-31`);
+      break;
+
+    default:
+      throw new Error('Invalid quarter, must be a number between 1 and 4');
+  }
+
+  const github = new GitHubClient(AUTH_TOKEN, from, to);
   await github.authenticate();
 
   const calculatorInput = await getData(github);
@@ -44,35 +79,19 @@ const uniq = (users: User[]): User[] => {
 };
 
 async function getData(github: GitHubClient): Promise<CalculatorInput> {
+  // reward merged pull requests
   const pullRequests = await github.readPullRequests();
   const members = uniq([
     ...(await github.readMembers()),
     ...pullRequests.funded.map((pr) => pr.user),
   ]);
-  const issues = await github.readIssues();
-  const prComments: { pullRequest: PullRequest; comments: Comment[] }[] =
-    await Promise.all(
-      pullRequests.all.map((pullRequest: PullRequest) =>
-        github.readPullRequestComments(pullRequest).then((comments) => ({
-          pullRequest,
-          comments,
-        }))
-      )
-    );
-  const issuesComments: { issue: Issue; comments: Comment[] }[] =
-    await Promise.all(
-      issues.map((issue: Issue) =>
-        github
-          .readIssueComments(issue)
-          .then((comments) => ({ issue, comments }))
-      )
-    );
+  const newIssues: any[] = await github.readCreatedIssues();
+  const comments: Comment[] = await github.readCreatedComments();
 
   return {
     members,
     pullRequests,
-    issues,
-    prComments,
-    issuesComments,
+    issues: newIssues,
+    comments,
   };
 }

@@ -1,5 +1,27 @@
 import { Comment, Issue, PullRequest } from "./types";
 
+export async function readSearch<T extends PullRequest | Issue | Comment>(
+  fun: Function,
+  args: Object,
+  acc: T[] = [],
+  page = 1
+): Promise<T[]> {
+  const response = await fun({
+    ...args,
+    per_page: 100,
+    page,
+  });
+
+  const items = [...acc, ...response.data.items];
+
+  if (response.data.items.length < 100) {
+    return items;
+  }
+
+  return readSearch(fun, args, items, page + 1);
+}
+
+
 export async function readCollection<T extends PullRequest | Issue | Comment>(
   from: Date,
   fun: Function,

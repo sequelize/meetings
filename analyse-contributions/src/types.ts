@@ -4,8 +4,11 @@ export type Timestamps = {
   closed_at?: string;
 };
 
-export type PullRequest = Links &
+export type PullRequest =
   Timestamps & {
+    pull_request: {
+      html_url: string;
+    },
     user: User;
     number: number;
     title: string;
@@ -31,7 +34,9 @@ export type Issue = Timestamps & {
   number: number;
   title: string;
   comments_url: string;
+  comments: number;
   html_url: string;
+  state_reason;
   head: {
     repo: Repository;
   };
@@ -44,6 +49,7 @@ export type User = {
 
 export type Comment = Timestamps & {
   user: User;
+  html_url: string;
 };
 
 export type Repository = {
