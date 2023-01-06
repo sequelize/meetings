@@ -10,29 +10,29 @@ export function formatScore(
     console.log(user.login);
     console.log("-".repeat(user.login.length));
 
-    console.log();
-    console.log("Pull Requests");
-    contributions.pullRequests.forEach((pr) => {
-      console.log(`- ${pr.title} (${pr._links.html.href})`);
-    });
+    if (contributions.pullRequests.length > 0) {
+      console.log();
+      console.log("Pull Requests");
+      contributions.pullRequests.forEach((pr) => {
+        console.log(`- ${pr.title} (${pr.pull_request.html_url})`);
+      });
+    }
 
-    console.log();
-    console.log("Issues");
-    contributions.issues.forEach((issue) => {
-      console.log(`- ${issue.title} (${issue.html_url})`);
-    });
+    if (contributions.issues.length > 0) {
+      console.log();
+      console.log("Issues");
+      contributions.issues.forEach((issue) => {
+        console.log(`- ${issue.title} (${issue.html_url})`);
+      });
+    }
 
-    console.log();
-    console.log("Comments on Pull Requests");
-    contributions.prComments.forEach(({ pullRequest }) => {
-      console.log(`- ${pullRequest.title} (${pullRequest._links.html.href})`);
-    });
-
-    console.log();
-    console.log("Comments on Issues");
-    contributions.issueComments.forEach(({ issue }) => {
-      console.log(`- ${issue.title} (${issue.html_url})`);
-    });
+    if (contributions.comments.length > 0) {
+      console.log();
+      console.log("Comments on Issues & PRs");
+      contributions.comments.forEach(url => {
+        console.log(`- ${url}`);
+      });
+    }
   });
 
   console.log("\nOverall stats");
@@ -44,7 +44,7 @@ export function formatScore(
       `total: ${score.total}`,
       `pr: ${score.pullRequests}`,
       `issues: ${score.issues}`,
-      `comments: ${score.issueComments + score.prComments}`,
+      `comments: ${score.comments}`,
     ];
     const usd = (share * balance).toFixed(2);
 
